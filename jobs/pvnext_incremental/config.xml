@@ -1,26 +1,26 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<matrix-project>
+<matrix-project plugin="matrix-project@1.4">
   <actions/>
   <description>Building Mantid against the next version of ParaView (4.1.0).</description>
   <logRotator class="hudson.tasks.LogRotator">
     <daysToKeep>7</daysToKeep>
     <numToKeep>-1</numToKeep>
     <artifactDaysToKeep>-1</artifactDaysToKeep>
-    <artifactNumToKeep>-1</artifactNumToKeep>
+    <artifactNumToKeep>1</artifactNumToKeep>
   </logRotator>
   <keepDependencies>false</keepDependencies>
   <properties>
     <hudson.plugins.trac.TracProjectProperty plugin="trac@1.13">
       <tracWebsite>http://trac.mantidproject.org/mantid/</tracWebsite>
     </hudson.plugins.trac.TracProjectProperty>
-    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.8">
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.10">
       <projectUrl>http://github.com/mantidproject/mantid/</projectUrl>
     </com.coravy.hudson.plugins.github.GithubProjectProperty>
-    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.23">
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27">
       <wallDisplayName>ParaView-Next Incremental</wallDisplayName>
     </de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty>
   </properties>
-  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.1">
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.6">
     <configVersion>2</configVersion>
     <userRemoteConfigs>
       <hudson.plugins.git.UserRemoteConfig>
@@ -61,7 +61,7 @@
     </hudson.matrix.LabelAxis>
   </axes>
   <builders>
-    <hudson.plugins.xshell.XShellBuilder plugin="xshell@0.9">
+    <hudson.plugins.xshell.XShellBuilder plugin="xshell@0.10">
       <commandLine>$WORKSPACE/Code/Mantid/Build/Jenkins/buildscript</commandLine>
       <executeFromWorkingDir>false</executeFromWorkingDir>
       <regexToKill></regexToKill>
@@ -73,11 +73,14 @@
       <artifacts>build/*.rpm,build/*.deb</artifacts>
       <latestOnly>true</latestOnly>
       <allowEmptyArchive>true</allowEmptyArchive>
+      <onlyIfSuccessful>false</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>true</defaultExcludes>
     </hudson.tasks.ArtifactArchiver>
   </publishers>
   <buildWrappers>
-    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.11"/>
-    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.17">
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
+    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.20">
       <takeScreenshot>false</takeScreenshot>
       <useXauthority>true</useXauthority>
     </hudson.plugins.xvnc.Xvnc>
