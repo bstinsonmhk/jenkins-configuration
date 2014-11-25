@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<matrix-project plugin="matrix-project@1.3">
+<matrix-project plugin="matrix-project@1.4">
   <actions/>
   <description></description>
   <logRotator class="hudson.tasks.LogRotator">
@@ -13,7 +13,7 @@
     <hudson.plugins.trac.TracProjectProperty plugin="trac@1.13">
       <tracWebsite>http://trac.mantidproject.org/mantid/</tracWebsite>
     </hudson.plugins.trac.TracProjectProperty>
-    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.9.1">
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.10">
       <projectUrl>http://github.com/mantidproject/systemtests/</projectUrl>
     </com.coravy.hudson.plugins.github.GithubProjectProperty>
     <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
@@ -25,7 +25,7 @@
       <wallDisplayName>Develop Nightly System Tests</wallDisplayName>
     </de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty>
   </properties>
-  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.4">
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.6">
     <configVersion>2</configVersion>
     <userRemoteConfigs>
       <hudson.plugins.git.UserRemoteConfig>
@@ -72,7 +72,7 @@
     </hudson.matrix.LabelAxis>
   </axes>
   <builders>
-    <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.31">
+    <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.32.1">
       <project>develop_clean/label=${label}-build</project>
       <filter>build/*.exe, build/*.deb, build/*.rpm, build/*.dmg</filter>
       <target></target>
@@ -91,10 +91,12 @@
   <publishers>
     <hudson.tasks.ArtifactArchiver>
       <artifacts>logs/*-mismatch.nxs, revision_tested.log</artifacts>
-      <latestOnly>false</latestOnly>
       <allowEmptyArchive>false</allowEmptyArchive>
+      <onlyIfSuccessful>false</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>true</defaultExcludes>
     </hudson.tasks.ArtifactArchiver>
-    <hudson.tasks.junit.JUnitResultArchiver>
+    <hudson.tasks.junit.JUnitResultArchiver plugin="junit@1.0">
       <testResults>logs/*.xml</testResults>
       <keepLongStdio>false</keepLongStdio>
       <testDataPublishers/>
