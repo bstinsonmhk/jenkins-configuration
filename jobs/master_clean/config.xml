@@ -133,7 +133,6 @@
     </hudson.plugins.warnings.WarningsPublisher>
     <hudson.tasks.ArtifactArchiver>
       <artifacts>build/*.rpm,build/*.tar.gz,build/*.deb,build/*.exe,build/*.dmg,build/*.tar.bz2</artifacts>
-      <latestOnly>true</latestOnly>
       <allowEmptyArchive>false</allowEmptyArchive>
       <onlyIfSuccessful>false</onlyIfSuccessful>
       <fingerprint>false</fingerprint>
