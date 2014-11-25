@@ -71,7 +71,6 @@
   <publishers>
     <hudson.tasks.ArtifactArchiver>
       <artifacts>build/*.rpm,build/*.deb</artifacts>
-      <latestOnly>true</latestOnly>
       <allowEmptyArchive>true</allowEmptyArchive>
       <onlyIfSuccessful>false</onlyIfSuccessful>
       <fingerprint>false</fingerprint>
