@@ -83,7 +83,6 @@ python $WORKSPACE/Test/PerformanceTests/make_report.py --path $WORKSPACE/Report 
   <publishers>
     <hudson.tasks.ArtifactArchiver>
       <artifacts>ResultsDb/MantidPerformanceTests_*.db</artifacts>
-      <latestOnly>true</latestOnly>
       <allowEmptyArchive>false</allowEmptyArchive>
       <onlyIfSuccessful>false</onlyIfSuccessful>
       <fingerprint>false</fingerprint>
