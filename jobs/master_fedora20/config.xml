@@ -13,7 +13,7 @@
     <hudson.plugins.trac.TracProjectProperty plugin="trac@1.13">
       <tracWebsite>http://trac.mantidproject.org/mantid/</tracWebsite>
     </hudson.plugins.trac.TracProjectProperty>
-    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.9.1">
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.10">
       <projectUrl>https://github.com/mantidproject/mantid/</projectUrl>
     </com.coravy.hudson.plugins.github.GithubProjectProperty>
     <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
@@ -65,7 +65,7 @@ H */3 * * *</spec>
     </hudson.plugins.xshell.XShellBuilder>
   </builders>
   <publishers>
-    <hudson.plugins.warnings.WarningsPublisher plugin="warnings@4.43">
+    <hudson.plugins.warnings.WarningsPublisher plugin="warnings@4.44">
       <healthy></healthy>
       <unHealthy></unHealthy>
       <thresholdLimit>low</thresholdLimit>
@@ -96,10 +96,12 @@ H */3 * * *</spec>
     </hudson.plugins.warnings.WarningsPublisher>
     <hudson.tasks.ArtifactArchiver>
       <artifacts>build/*.rpm,build/*.tar.gz,build/*.deb,build/*.exe,build/*.dmg,build/*.tar.bz2</artifacts>
-      <latestOnly>false</latestOnly>
       <allowEmptyArchive>false</allowEmptyArchive>
+      <onlyIfSuccessful>false</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>true</defaultExcludes>
     </hudson.tasks.ArtifactArchiver>
-    <hudson.tasks.junit.JUnitResultArchiver>
+    <hudson.tasks.junit.JUnitResultArchiver plugin="junit@1.0">
       <testResults>**/TEST-*.xml</testResults>
       <keepLongStdio>false</keepLongStdio>
       <testDataPublishers/>
@@ -107,7 +109,7 @@ H */3 * * *</spec>
   </publishers>
   <buildWrappers>
     <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
-    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.17">
+    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.20">
       <takeScreenshot>false</takeScreenshot>
       <useXauthority>true</useXauthority>
     </hudson.plugins.xvnc.Xvnc>
