@@ -1,0 +1,172 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>Run the documentation tests on the most recently built RHEL6 package from develop_incremental</description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>14</daysToKeep>
+    <numToKeep>-1</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.plugins.trac.TracProjectProperty plugin="trac@1.13">
+      <tracWebsite>http://trac.mantidproject.org/mantid/</tracWebsite>
+    </hudson.plugins.trac.TracProjectProperty>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.9.1">
+      <projectUrl>http://github.com/mantidproject/mantid/</projectUrl>
+    </com.coravy.hudson.plugins.github.GithubProjectProperty>
+    <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
+      <needsExclusiveAccessToNode>false</needsExclusiveAccessToNode>
+      <singleInstancePerSlave>false</singleInstancePerSlave>
+      <slaveUtilizationPercentage>0</slaveUtilizationPercentage>
+    </com.suryagaddipati.jenkins.SlaveUtilizationProperty>
+    <jenkins.plugins.slack.SlackNotifier_-SlackJobProperty plugin="slack@1.2">
+      <room></room>
+      <startNotification>false</startNotification>
+      <notifySuccess>false</notifySuccess>
+      <notifyAborted>true</notifyAborted>
+      <notifyNotBuilt>true</notifyNotBuilt>
+      <notifyUnstable>true</notifyUnstable>
+      <notifyFailure>true</notifyFailure>
+      <notifyBackToNormal>true</notifyBackToNormal>
+    </jenkins.plugins.slack.SlackNotifier_-SlackJobProperty>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27">
+      <wallDisplayName>Doc Tests Incremental (RHEL6)</wallDisplayName>
+    </de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.6">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>git://github.com/mantidproject/mantid.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/develop</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <gitTool>Default</gitTool>
+    <submoduleCfg class="list"/>
+    <extensions>
+      <hudson.plugins.git.extensions.impl.CloneOption>
+        <shallow>false</shallow>
+        <reference></reference>
+        <timeout>30</timeout>
+      </hudson.plugins.git.extensions.impl.CloneOption>
+    </extensions>
+  </scm>
+  <assignedNode>rhel6&amp;&amp;sphinx</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <jenkins.triggers.ReverseBuildTrigger>
+      <spec></spec>
+      <upstreamProjects>develop_incremental</upstreamProjects>
+      <threshold>
+        <name>UNSTABLE</name>
+        <ordinal>1</ordinal>
+        <color>YELLOW</color>
+        <completeBuild>true</completeBuild>
+      </threshold>
+    </jenkins.triggers.ReverseBuildTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command># Remove previous packages
+rm -Rf *.rpm</command>
+    </hudson.tasks.Shell>
+    <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.32.1">
+      <project>develop_incremental/label=rhel6-build</project>
+      <filter>build/mantid*.rpm</filter>
+      <target></target>
+      <excludes></excludes>
+      <selector class="hudson.plugins.copyartifact.StatusBuildSelector"/>
+      <flatten>true</flatten>
+      <doNotFingerprintArtifacts>false</doNotFingerprintArtifacts>
+    </hudson.plugins.copyartifact.CopyArtifact>
+    <hudson.tasks.Shell>
+      <command>#####################################################################################
+# Find and install package
+#####################################################################################
+npkgs=`find . -maxdepth 1 -name &apos;*.rpm&apos; | wc -l`
+if [[ $npkgs -ne 1 ]]; then
+  echo &quot;Found more than 1 package to install.&quot;
+  exit 1
+fi
+
+pkg=`find . -maxdepth 1 -name &apos;*.rpm&apos;`
+pkgname=`basename $pkg | cut -d&apos;-&apos; -f 1`
+
+sudo yum install -y $pkg
+
+#####################################################################################
+# Create a build directory and run cmake
+# We won&apos;t actually do a build as we&apos;re running from a package but we need the
+# docs and test data
+#####################################################################################
+[ -d $WORKSPACE/build ] || mkdir $WORKSPACE/build
+cd $WORKSPACE/build
+
+SCL_ON_RHEL6=&quot;scl enable mantidlibs&quot;
+$SCL_ON_RHEL6 &quot;cmake -DCMAKE_BUILD_TYPE=Release ../Code/Mantid&quot;
+
+#####################################################################################
+# Run tests
+#####################################################################################
+# Create clean user properties with UsageData search path
+userprops=~/.mantid/Mantid.user.properties
+rm -f $userprops
+autotestdata=${WORKSPACE}/Test/AutoTestData
+instrumentdir=${WORKSPACE}/Code/Mantid/instrument
+echo &quot;datasearch.directories=${autotestdata};${autotestdata}/UsageData;${instrumentdir}&quot; &gt; $userprops
+
+# install directory is package name with exception of
+# release package that goes in Mantid
+case $pkgname in
+  mantid) installdir=Mantid;;
+  *) installdir=$pkgname
+esac
+
+set +e #don&apos;t immediately exit on failure
+/opt/$installdir/bin/MantidPlot -xq docs/runsphinx_doctest.py
+status=$?
+set -e #exit on failures from now on
+
+#####################################################################################
+# Remove package
+#####################################################################################
+sudo yum -y erase $pkgname
+
+exit $status</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.tasks.junit.JUnitResultArchiver>
+      <testResults>build/docs/**/TEST-*.xml</testResults>
+      <keepLongStdio>false</keepLongStdio>
+      <testDataPublishers/>
+    </hudson.tasks.junit.JUnitResultArchiver>
+    <hudson.plugins.blame__upstream__commiters.BlameUpstreamCommitersPublisher plugin="blame-upstream-commiters@1.2">
+      <sendToIndividuals>false</sendToIndividuals>
+    </hudson.plugins.blame__upstream__commiters.BlameUpstreamCommitersPublisher>
+    <jenkins.plugins.slack.SlackNotifier plugin="slack@1.2">
+      <teamDomain>mantid</teamDomain>
+      <authToken>3KdhcWC5efWXnWmFPQegoMee</authToken>
+      <buildServerUrl>http://builds.mantidproject.org/</buildServerUrl>
+      <room>#jenkins</room>
+    </jenkins.plugins.slack.SlackNotifier>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
+    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.17">
+      <takeScreenshot>false</takeScreenshot>
+      <useXauthority>true</useXauthority>
+    </hudson.plugins.xvnc.Xvnc>
+  </buildWrappers>
+</project>

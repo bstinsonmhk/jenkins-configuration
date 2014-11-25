@@ -1,0 +1,171 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>Runs the system tests on the latest incremental RHEL6 build of the develop branch.</description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>14</daysToKeep>
+    <numToKeep>-1</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.plugins.trac.TracProjectProperty plugin="trac@1.13">
+      <tracWebsite>http://trac.mantidproject.org/mantid/</tracWebsite>
+    </hudson.plugins.trac.TracProjectProperty>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.9.1">
+      <projectUrl>http://github.com/mantidproject/systemtests/</projectUrl>
+    </com.coravy.hudson.plugins.github.GithubProjectProperty>
+    <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
+      <needsExclusiveAccessToNode>false</needsExclusiveAccessToNode>
+      <singleInstancePerSlave>false</singleInstancePerSlave>
+      <slaveUtilizationPercentage>0</slaveUtilizationPercentage>
+    </com.suryagaddipati.jenkins.SlaveUtilizationProperty>
+    <jp.ikedam.jenkins.plugins.scoringloadbalancer.preferences.BuildPreferenceJobProperty plugin="scoring-load-balancer@1.0.1">
+      <buildPreferenceList>
+        <jp.ikedam.jenkins.plugins.scoringloadbalancer.preferences.BuildPreference>
+          <labelExpression>ornl-manos</labelExpression>
+          <preference>9</preference>
+        </jp.ikedam.jenkins.plugins.scoringloadbalancer.preferences.BuildPreference>
+      </buildPreferenceList>
+    </jp.ikedam.jenkins.plugins.scoringloadbalancer.preferences.BuildPreferenceJobProperty>
+    <jenkins.plugins.slack.SlackNotifier_-SlackJobProperty plugin="slack@1.2">
+      <room></room>
+      <startNotification>false</startNotification>
+      <notifySuccess>false</notifySuccess>
+      <notifyAborted>true</notifyAborted>
+      <notifyNotBuilt>true</notifyNotBuilt>
+      <notifyUnstable>true</notifyUnstable>
+      <notifyFailure>true</notifyFailure>
+      <notifyBackToNormal>true</notifyBackToNormal>
+    </jenkins.plugins.slack.SlackNotifier_-SlackJobProperty>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27">
+      <wallDisplayName>Develop Rolling System Tests (on RHEL6)</wallDisplayName>
+    </de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.4">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>git://github.com/mantidproject/systemtests.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/develop</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <gitTool>Default</gitTool>
+    <submoduleCfg class="list"/>
+    <extensions>
+      <hudson.plugins.git.extensions.impl.CloneOption>
+        <shallow>true</shallow>
+        <reference></reference>
+        <timeout>30</timeout>
+      </hudson.plugins.git.extensions.impl.CloneOption>
+      <hudson.plugins.git.extensions.impl.CleanCheckout/>
+    </extensions>
+  </scm>
+  <assignedNode>rhel6</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <hudson.triggers.SCMTrigger>
+      <spec># Check once per hour for any commits to the systemtests repository itself
+@hourly</spec>
+      <ignorePostCommitHooks>false</ignorePostCommitHooks>
+    </hudson.triggers.SCMTrigger>
+    <org.jenkinsci.plugins.buildresulttrigger.BuildResultTrigger plugin="buildresult-trigger@0.17">
+      <spec>@hourly</spec>
+      <combinedJobs>false</combinedJobs>
+      <jobsInfo>
+        <org.jenkinsci.plugins.buildresulttrigger.model.BuildResultTriggerInfo>
+          <jobNames>develop_incremental</jobNames>
+          <checkedResults>
+            <org.jenkinsci.plugins.buildresulttrigger.model.CheckedResult>
+              <checked>SUCCESS</checked>
+            </org.jenkinsci.plugins.buildresulttrigger.model.CheckedResult>
+            <org.jenkinsci.plugins.buildresulttrigger.model.CheckedResult>
+              <checked>UNSTABLE</checked>
+            </org.jenkinsci.plugins.buildresulttrigger.model.CheckedResult>
+          </checkedResults>
+        </org.jenkinsci.plugins.buildresulttrigger.model.BuildResultTriggerInfo>
+      </jobsInfo>
+    </org.jenkinsci.plugins.buildresulttrigger.BuildResultTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.31">
+      <project>develop_incremental/label=rhel6-build</project>
+      <filter>build/mantid*.rpm</filter>
+      <target></target>
+      <excludes></excludes>
+      <selector class="hudson.plugins.copyartifact.StatusBuildSelector"/>
+      <flatten>true</flatten>
+      <doNotFingerprintArtifacts>false</doNotFingerprintArtifacts>
+    </hudson.plugins.copyartifact.CopyArtifact>
+    <hudson.tasks.Shell>
+      <command>#!/bin/sh -x
+# Don&apos;t immediately mark the build as failed if system tests fail - we want the performance report to be generated still
+python InstallerTesting/InstallerTests.py -o
+retval=$?
+# Parse the output to capture the performance metrics
+if [ ${NODE_NAME} = &quot;ornl-manos&quot; ]; then
+  REVISION=`head -1 ${WORKSPACE}/revision_tested.log`
+  cd ${WORKSPACE}/logs
+  python ${WORKSPACE}/PerformanceMonitoring/xunit_to_sql.py SystemTestsReport.xml --db /home/builder/MantidPerformanceTests/SystemTestsDevelop.db --commit $REVISION
+  python ${WORKSPACE}/PerformanceMonitoring/make_report.py /home/builder/MantidPerformanceTests/SystemTestsDevelop.db
+fi
+# Return the value from the tests run in the Python command above
+exit ${retval}</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.tasks.ArtifactArchiver>
+      <artifacts>*tested.log,logs/*-mismatch.nxs</artifacts>
+      <latestOnly>true</latestOnly>
+      <allowEmptyArchive>false</allowEmptyArchive>
+    </hudson.tasks.ArtifactArchiver>
+    <htmlpublisher.HtmlPublisher plugin="htmlpublisher@1.3">
+      <reportTargets>
+        <htmlpublisher.HtmlPublisherTarget>
+          <reportName>System tests performance</reportName>
+          <reportDir>logs/Report</reportDir>
+          <reportFiles>report.htm</reportFiles>
+          <keepAll>false</keepAll>
+          <allowMissing>true</allowMissing>
+          <wrapperName>htmlpublisher-wrapper.html</wrapperName>
+        </htmlpublisher.HtmlPublisherTarget>
+      </reportTargets>
+    </htmlpublisher.HtmlPublisher>
+    <hudson.tasks.junit.JUnitResultArchiver>
+      <testResults>logs/*.xml</testResults>
+      <keepLongStdio>false</keepLongStdio>
+      <testDataPublishers/>
+    </hudson.tasks.junit.JUnitResultArchiver>
+    <hudson.tasks.Mailer plugin="mailer@1.10">
+      <recipients>martyn.gigg@stfc.ac.uk</recipients>
+      <dontNotifyEveryUnstableBuild>true</dontNotifyEveryUnstableBuild>
+      <sendToIndividuals>false</sendToIndividuals>
+    </hudson.tasks.Mailer>
+    <hudson.plugins.blame__upstream__commiters.BlameUpstreamCommitersPublisher plugin="blame-upstream-commiters@1.2">
+      <sendToIndividuals>false</sendToIndividuals>
+    </hudson.plugins.blame__upstream__commiters.BlameUpstreamCommitersPublisher>
+    <jenkins.plugins.slack.SlackNotifier plugin="slack@1.2">
+      <teamDomain>mantid</teamDomain>
+      <authToken>3KdhcWC5efWXnWmFPQegoMee</authToken>
+      <buildServerUrl>http://builds.mantidproject.org/</buildServerUrl>
+      <room>#jenkins</room>
+    </jenkins.plugins.slack.SlackNotifier>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
+    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.17">
+      <takeScreenshot>false</takeScreenshot>
+      <useXauthority>true</useXauthority>
+    </hudson.plugins.xvnc.Xvnc>
+  </buildWrappers>
+</project>

@@ -1,0 +1,150 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
+      <needsExclusiveAccessToNode>false</needsExclusiveAccessToNode>
+      <singleInstancePerSlave>false</singleInstancePerSlave>
+      <slaveUtilizationPercentage>0</slaveUtilizationPercentage>
+    </com.suryagaddipati.jenkins.SlaveUtilizationProperty>
+    <jenkins.plugins.slack.SlackNotifier_-SlackJobProperty plugin="slack@1.2">
+      <room></room>
+      <startNotification>false</startNotification>
+      <notifySuccess>false</notifySuccess>
+      <notifyAborted>false</notifyAborted>
+      <notifyNotBuilt>false</notifyNotBuilt>
+      <notifyUnstable>false</notifyUnstable>
+      <notifyFailure>false</notifyFailure>
+      <notifyBackToNormal>false</notifyBackToNormal>
+    </jenkins.plugins.slack.SlackNotifier_-SlackJobProperty>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27"/>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <assignedNode>master</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.plugins.groovy.Groovy plugin="groovy@1.24">
+      <scriptSource class="hudson.plugins.groovy.StringScriptSource">
+        <command>import javax.activation.*
+import javax.mail.*
+import javax.mail.internet.*
+
+import hudson.model.*
+import hudson.node_monitors.*
+import hudson.slaves.*
+import java.util.concurrent.*
+
+jenkins = Hudson.instance
+
+
+println &quot;Doing something&quot;
+
+def sendMail (slave, cause) {
+  
+ message = slave + &quot; slave is down. Check http://JENKINS_HOSTNAME:JENKINS_PORT/computer/&quot; + slave + &quot;\nBecause &quot; + cause
+ subject = slave + &quot; slave is offline&quot;
+ toAddress = &quot;petersonpf@ornl.gov&quot;
+ fromAddress = &quot;mantid-help@mantidproject.org&quot;
+ host = &quot;SMTP_SERVER&quot;
+ port = &quot;SMTP_PORT&quot;
+
+ Properties mprops = new Properties();
+ mprops.setProperty(&quot;mail.transport.protocol&quot;,&quot;smtp&quot;);
+ mprops.setProperty(&quot;mail.host&quot;,host);
+ mprops.setProperty(&quot;mail.smtp.port&quot;,port);
+
+ Session sess = Session.getDefaultInstance(mprops,null);
+ MimeMessage msg = new MimeMessage(sess);
+
+
+ //tokenize out the recipients in case they came in as a list
+ StringTokenizer tok = new StringTokenizer(toAddress,&quot;;&quot;);
+ ArrayList emailTos = new ArrayList();
+ while(tok.hasMoreElements()){
+ emailTos.add(new InternetAddress(tok.nextElement().toString()));
+ }
+ InternetAddress[] to = new InternetAddress[emailTos.size()];
+ to = (InternetAddress[]) emailTos.toArray(to);
+ msg.setRecipients(MimeMessage.RecipientType.TO,to);
+ InternetAddress fromAddr = new InternetAddress(fromAddress);
+ msg.setFrom(fromAddr);
+ msg.setFrom(new InternetAddress(fromAddress));
+ msg.setSubject(subject);
+ msg.setText(message)
+
+ Transport transporter = lSession.getTransport(&quot;smtp&quot;);
+ transporter.connect();
+ transporter.send(msg);
+}
+
+
+def getEnviron(computer) {
+   def env
+   def thread = Thread.start(&quot;Getting env from ${computer.name}&quot;, { env = computer.environment })
+   thread.join(2000)
+   if (thread.isAlive()) thread.interrupt()
+   env
+}
+
+def slaveAccessible(computer) {
+    getEnviron(computer)?.get(&apos;PATH&apos;) != null
+}
+
+
+def numberOfflineNodes = 0
+def numberNodes = 0
+println &quot;Groovy script is running&quot;
+for (slave in jenkins.slaves) {
+   println &quot;SLAVE ${slave}&quot;
+   def computer = slave.computer
+   numberNodes ++
+   println &quot;&quot;
+   println &quot;Checking computer ${computer.name}:&quot;
+   def isOK = (slaveAccessible(computer) &amp;&amp; !computer.offline)
+   if (isOK) {
+     println &quot;\t\tOK, got PATH back from slave ${computer.name}.&quot;
+     println(&apos;\tcomputer.isOffline: &apos; + slave.getComputer().isOffline()); 
+     println(&apos;\tcomputer.isTemporarilyOffline: &apos; + slave.getComputer().isTemporarilyOffline());
+     println(&apos;\tcomputer.getOfflineCause: &apos; + slave.getComputer().getOfflineCause());
+     println(&apos;\tcomputer.offline: &apos; + computer.offline); 
+     
+     
+   } else {
+     numberOfflineNodes ++
+     println &quot;  ERROR: can&apos;t get PATH from slave ${computer.name}.&quot;
+     println(&apos;\tcomputer.isOffline: &apos; + slave.getComputer().isOffline()); 
+     println(&apos;\tcomputer.isTemporarilyOffline: &apos; + slave.getComputer().isTemporarilyOffline());
+     println(&apos;\tcomputer.getOfflineCause: &apos; + slave.getComputer().getOfflineCause());
+     println(&apos;\tcomputer.offline: &apos; + computer.offline); 
+     //sendMail(computer.name, slave.getComputer().getOfflineCause().toString())
+     if (slave.getComputer().isTemporarilyOffline()) {
+      if (!slave.getComputer().getOfflineCause().toString().contains(&quot;Disconnected by&quot;)) {
+         computer.setTemporarilyOffline(false, slave.getComputer().getOfflineCause())        
+      }
+     } else {
+         computer.connect(true)  
+     }
+   }
+ }
+println (&quot;Number of Offline Nodes: &quot; + numberOfflineNodes)
+println (&quot;Number of Nodes: &quot; + numberNodes)  
+</command>
+      </scriptSource>
+      <groovyName>Groovy 2.2.1</groovyName>
+      <parameters></parameters>
+      <scriptParameters></scriptParameters>
+      <properties></properties>
+      <javaOpts></javaOpts>
+      <classPath></classPath>
+    </hudson.plugins.groovy.Groovy>
+  </builders>
+  <publishers/>
+  <buildWrappers/>
+</project>

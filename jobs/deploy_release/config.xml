@@ -1,0 +1,161 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>Build that must be run manually to copy the build artifacts to sourceforge and upload the documentation to the webserver.&lt;br&gt;&#xd;
+&lt;br&gt;&#xd;
+It is parameterized by a single parameter that defines the name of the folder on sourceforge that should contain the packages. The documentation is uploaded to a directory that matches the full&#xd;
+version number.</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
+      <needsExclusiveAccessToNode>false</needsExclusiveAccessToNode>
+      <singleInstancePerSlave>false</singleInstancePerSlave>
+      <slaveUtilizationPercentage>0</slaveUtilizationPercentage>
+    </com.suryagaddipati.jenkins.SlaveUtilizationProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>SOURCEFORGE_DIR</name>
+          <description>The target directory name on sourceforge that will hold the packages, e.g. for version 3.1.1 = 3.1</description>
+          <defaultValue></defaultValue>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27"/>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <assignedNode>master</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.31">
+      <project>release_clean</project>
+      <filter>**/*.exe,**/*.dmg,**/*.rpm,**/*.deb,**/*.tar.gz,**/*.tar.bz2</filter>
+      <target>artifacts</target>
+      <excludes></excludes>
+      <selector class="hudson.plugins.copyartifact.StatusBuildSelector"/>
+      <flatten>true</flatten>
+      <doNotFingerprintArtifacts>false</doNotFingerprintArtifacts>
+    </hudson.plugins.copyartifact.CopyArtifact>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash -ex
+
+if [ -z &quot;${SOURCEFORGE_DIR}&quot; ]; then
+  echo &quot;Empty parameter supplied&quot;
+  exit 1
+fi
+
+
+SCP_HOST=frs.sourceforge.net
+SHELL_HOST=shell.sourceforge.net
+DEST_DIR=/home/frs/project/mantid/${SOURCEFORGE_DIR}
+PROJECT=mantid
+USERNAME=mantidbuilder
+
+publish_build() {
+    # Remove the old one. First find package name
+    src_file=$1
+    filename=`basename $1`                                                                                   
+    pkgname=&quot;mantid&quot;
+    # now suffix                                                                                                                      
+    case $filename in
+        *.tar.gz) wildcard=&quot;*.tar.gz&quot;;;
+        *.deb) wildcard=&quot;*.deb&quot;;;
+        *.rpm) wildcard=&quot;*.rpm&quot;;;
+        *.dmg) wildcard=&quot;*.dmg&quot;;;
+        *-win32.exe) wildcard=&quot;*-win32.exe&quot;;;
+        *-win64.exe) wildcard=&quot;*-win64.exe&quot;;;
+        *) wildcard=&quot;&quot;
+    esac
+    if [ -z &quot;$wildcard&quot; ]; then
+        return
+    fi
+
+    ## Copy kit into place                                                                                                    
+    scp ${src_file} ${USERNAME}@${SCP_HOST}:${DEST_DIR}/${filename}
+}
+
+###############################################################################################
+
+###############################################################################################
+# Packages to sourceforge
+###############################################################################################
+# Start sourceforge shell
+ssh ${USERNAME},${PROJECT}@${SHELL_HOST} create
+
+# Create directory if it doesn&apos;t already exist
+ssh ${USERNAME},${PROJECT}@${SHELL_HOST} &quot;mkdir -p ${DEST_DIR}&quot;
+
+artifacts=`find ${WORKSPACE}/artifacts -type f -print0 | xargs -0`
+for f in ${artifacts}; do
+    # don&apos;t deploy mantiddocs tarball
+    if [[ $f != *mantiddocs* ]] ; then
+        publish_build $f
+        filename=`basename $f`
+    fi
+done
+
+
+</command>
+    </hudson.tasks.Shell>
+    <hudson.tasks.Shell>
+      <command>if [ -z &quot;${SOURCEFORGE_DIR}&quot; ]; then
+  echo &quot;Empty parameter supplied&quot;
+  exit 1
+fi
+
+###############################################################################################
+# Documentation to linode
+###############################################################################################
+# Get version number from source tarball
+src_tarball=`find ${WORKSPACE}/artifacts -type f  -name &apos;mantid-*-Source.tar.gz&apos;`
+nfiles=`echo -e &quot;$src_tarball&quot; | wc -l`
+if [ &quot;${nfiles}&quot; != &quot;1&quot; ]; then
+    echo &quot;Found more than 1 source tarball! Don&apos;t know what to do&quot;
+    exit 1
+fi
+src_filename=`basename $src_tarball`
+version_number=`echo ${src_filename} | cut -d&apos;-&apos; -f 2`
+
+# Find docs tarball
+docs_tarball=`find ${WORKSPACE}/artifacts -type f  -name &apos;*.tar.bz2&apos;`
+nfiles=`echo -e &quot;$docs_tarball&quot; | wc -l`
+if [ &quot;${nfiles}&quot; != &quot;1&quot; ]; then
+    echo &quot;Found more than 1 documentation tarball! Don&apos;t know what to do&quot;
+    exit 1
+fi
+
+# Publish
+DOCS_SRV=/srv/docs/mantidproject.org
+FILE_DROP=${DOCS_SRV}/filedrop
+
+# First copy over the tarball (deleting anything beforehand)
+ssh mantid-builder@localhost &quot;rm -fr ${FILE_DROP}/*.tar.bz2&quot;
+scp ${docs_tarball} mantid-builder@localhost:${FILE_DROP}
+
+
+# Deploy
+DOC_DEST=${DOCS_SRV}/public_html/v${version_number}
+DEPLOY=&quot;rm -fr ${DOC_DEST} &amp;&amp;
+        mkdir -p ${DOC_DEST} &amp;&amp;
+        tar --extract -C ${DOC_DEST} --strip-components=2 --bzip2 -f ${docs_tarball}&quot;
+
+ssh mantid-builder@localhost $DEPLOY
+
+</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers>
+    <hudson.plugins.ws__cleanup.PreBuildCleanup plugin="ws-cleanup@0.22">
+      <deleteDirs>false</deleteDirs>
+      <cleanupParameter></cleanupParameter>
+      <externalDelete></externalDelete>
+    </hudson.plugins.ws__cleanup.PreBuildCleanup>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
+  </buildWrappers>
+</project>

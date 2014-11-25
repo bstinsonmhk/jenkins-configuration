@@ -1,0 +1,120 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>Performance tests running on every build of the &lt;b&gt;master&lt;/b&gt; branch, on a dedicated machine (isis-mantidlnx02).&#xd;
+The results are archived to a sqlite .db file.&lt;p&gt;</description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>-1</daysToKeep>
+    <numToKeep>30</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.25">
+      <wallDisplayName>Master Performance Tests</wallDisplayName>
+    </de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.1">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>git://github.com/mantidproject/mantid.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/master</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <gitTool>Default</gitTool>
+    <submoduleCfg class="list"/>
+    <extensions>
+      <hudson.plugins.git.extensions.impl.CloneOption>
+        <shallow>false</shallow>
+        <reference></reference>
+        <timeout>60</timeout>
+      </hudson.plugins.git.extensions.impl.CloneOption>
+    </extensions>
+  </scm>
+  <assignedNode>isis-mantidlnx02</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <com.cloudbees.jenkins.GitHubPushTrigger plugin="github@1.8">
+      <spec></spec>
+    </com.cloudbees.jenkins.GitHubPushTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command># Clean up old .xml files
+rm $WORKSPACE/build/bin/Testing/TEST-*.xml -f
+
+mkdir -p $WORKSPACE/build
+cd $WORKSPACE/build
+cmake -G &apos;Unix Makefiles&apos; -DCMAKE_BUILD_TYPE=Release -DCXXTEST_SINGLE_LOGFILE=FALSE -DCXXTEST_ADD_PERFORMANCE=TRUE -DMAKE_VATES=TRUE -DParaView_DIR=$PARAVIEW_DIR $WORKSPACE/Code/Mantid
+make -j$BUILD_THREADS AllTests
+
+# ------------------ Setup -----------------------------
+mkdir -p $WORKSPACE/ResultsDb
+mkdir -p $WORKSPACE/Report
+export DB_FILENAME=$WORKSPACE/ResultsDb/MantidPerformanceTests_master_$NODE_NAME.db
+
+# ------------- Run the C++ performance tests -----------
+cd $WORKSPACE/build/
+ctest -R Performance --output-on-failure --force-new-ctest-process
+
+# ------------ Convert the C++ Perf Test output from XML to SQL ---------------
+python $WORKSPACE/Test/PerformanceTests/xunit_to_sql.py $WORKSPACE/build/bin/Testing/TEST-*.xml --db $DB_FILENAME --commit $GIT_COMMIT
+
+# ------------ Launch report generator ---------------------
+python $WORKSPACE/Test/PerformanceTests/make_report.py --path $WORKSPACE/Report $DB_FILENAME 
+
+# --------- Validate performance here -------------------
+# SKIP THIS - IT&apos;S TOO UNRELIABLE SO ISN&apos;T USEFUL
+# (the stdout will be caught by the jenkins text finder plug-in) to make the build unstable
+# python $WORKSPACE/Test/PerformanceTests/check_performance.py $DB_FILENAME --avg 6 --tol 25</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.tasks.ArtifactArchiver>
+      <artifacts>ResultsDb/MantidPerformanceTests_*.db</artifacts>
+      <latestOnly>true</latestOnly>
+      <allowEmptyArchive>false</allowEmptyArchive>
+    </hudson.tasks.ArtifactArchiver>
+    <htmlpublisher.HtmlPublisher plugin="htmlpublisher@1.3">
+      <reportTargets>
+        <htmlpublisher.HtmlPublisherTarget>
+          <reportName>Master branch performance tests</reportName>
+          <reportDir>Report</reportDir>
+          <reportFiles>report.htm</reportFiles>
+          <keepAll>false</keepAll>
+          <allowMissing>false</allowMissing>
+          <wrapperName>htmlpublisher-wrapper.html</wrapperName>
+        </htmlpublisher.HtmlPublisherTarget>
+      </reportTargets>
+    </htmlpublisher.HtmlPublisher>
+    <hudson.tasks.junit.JUnitResultArchiver>
+      <testResults>build/bin/XML/*.xml, build/bin/Testing/*.xml </testResults>
+      <keepLongStdio>false</keepLongStdio>
+      <testDataPublishers/>
+    </hudson.tasks.junit.JUnitResultArchiver>
+    <hudson.tasks.Mailer plugin="mailer@1.8">
+      <recipients></recipients>
+      <dontNotifyEveryUnstableBuild>false</dontNotifyEveryUnstableBuild>
+      <sendToIndividuals>true</sendToIndividuals>
+    </hudson.tasks.Mailer>
+    <hudson.plugins.twitter.TwitterPublisher plugin="twitter@0.7"/>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.11"/>
+    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.17">
+      <takeScreenshot>false</takeScreenshot>
+      <useXauthority>true</useXauthority>
+    </hudson.plugins.xvnc.Xvnc>
+  </buildWrappers>
+</project>

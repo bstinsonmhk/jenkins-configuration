@@ -1,0 +1,232 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>Runs a Windows build in debug mode &lt;strong&gt;without&lt;/strong&gt; precompiled headers, along with all of the tests. Debug builds from Visual Studio can be better at finding bugs than their gcc counterparts.&lt;br&gt;&#xd;
+&lt;br&gt;&#xd;
+It requires a debug build of ParaView</description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>7</daysToKeep>
+    <numToKeep>-1</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.plugins.trac.TracProjectProperty plugin="trac@1.13">
+      <tracWebsite>http://trac.mantidproject.org/mantid/</tracWebsite>
+    </hudson.plugins.trac.TracProjectProperty>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.9.1">
+      <projectUrl>https://github.com/mantidproject/mantid/</projectUrl>
+    </com.coravy.hudson.plugins.github.GithubProjectProperty>
+    <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
+      <needsExclusiveAccessToNode>false</needsExclusiveAccessToNode>
+      <singleInstancePerSlave>false</singleInstancePerSlave>
+      <slaveUtilizationPercentage>0</slaveUtilizationPercentage>
+    </com.suryagaddipati.jenkins.SlaveUtilizationProperty>
+    <jenkins.plugins.slack.SlackNotifier_-SlackJobProperty plugin="slack@1.2">
+      <room></room>
+      <startNotification>false</startNotification>
+      <notifySuccess>false</notifySuccess>
+      <notifyAborted>false</notifyAborted>
+      <notifyNotBuilt>false</notifyNotBuilt>
+      <notifyUnstable>false</notifyUnstable>
+      <notifyFailure>false</notifyFailure>
+      <notifyBackToNormal>false</notifyBackToNormal>
+    </jenkins.plugins.slack.SlackNotifier_-SlackJobProperty>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27">
+      <wallDisplayName>Win7 Debug</wallDisplayName>
+    </de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.5">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>git://github.com/mantidproject/mantid.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/develop</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <gitTool>Default</gitTool>
+    <submoduleCfg class="list"/>
+    <extensions>
+      <hudson.plugins.git.extensions.impl.CloneOption>
+        <shallow>false</shallow>
+        <reference></reference>
+        <timeout>60</timeout>
+      </hudson.plugins.git.extensions.impl.CloneOption>
+      <hudson.plugins.git.extensions.impl.PruneStaleBranch/>
+    </extensions>
+  </scm>
+  <assignedNode>isis-ndw1185</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <hudson.triggers.TimerTrigger>
+      <spec>@midnight</spec>
+    </hudson.triggers.TimerTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.BatchFile>
+      <command>:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: WINDOWS SCRIPT TO DRIVE THE JENKINS BUILDS OF MANTID.
+::
+:: Notes:
+::
+:: WORKSPACE &amp; JOB_NAME are environment variables that are set by Jenkins.
+:: BUILD_THREADS &amp; PARAVIEW_DIR should be set in the configuration of each slave.
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+&quot;C:\Program Files (x86)\CMake 2.8\bin\cmake.exe&quot; --version 
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Check the required build configuration
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+set BUILD_CONFIG=
+if not &quot;%JOB_NAME%&quot;==&quot;%JOB_NAME:debug=%&quot; (
+    set BUILD_CONFIG=Debug
+) else (
+if not &quot;%JOB_NAME%&quot;==&quot;%JOB_NAME:relwithdbg=%&quot; (
+    set BUILD_CONFIG=RelWithDbg
+) else (
+    set BUILD_CONFIG=Release
+    ))
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Get or update the third party dependencies
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+cd %WORKSPACE%\Code
+call fetch_Third_Party win64
+cd %WORKSPACE%
+
+set PATH=%WORKSPACE%\Code\Third_Party\lib\win64;%WORKSPACE%\Code\Third_Party\lib\win64\Python27;%PARAVIEW_DIR%\bin\%BUILD_CONFIG%;%PATH%
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Check whether this is a clean build (must have &apos;clean&apos; in the job name)
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+set PACKAGE_DOCS=
+if &quot;%JOB_NAME%&quot;==&quot;%JOB_NAME:clean=%&quot; (
+    set CLEANBUILD=no
+) else  (
+    set CLEANBUILD=yes
+    set PACKAGE_DOCS=-DPACKAGE_DOCS=True
+    rmdir /S /Q build
+)
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Create the build directory if it doesn&apos;t exist
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+md %WORKSPACE%\build
+cd %WORKSPACE%\build
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: CMake configuration
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+&quot;C:\Program Files (x86)\CMake 2.8\bin\cmake.exe&quot; -G &quot;Visual Studio 11 Win64&quot; -DCONSOLE=OFF -DENABLE_CPACK=ON -DMAKE_VATES=ON -DParaView_DIR=%PARAVIEW_DIR% -DUSE_PRECOMPILED_HEADERS=OFF %PACKAGE_DOCS% ..\Code\Mantid
+if ERRORLEVEL 1 exit /B %ERRORLEVEL%
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Build step
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+msbuild /nologo /m:%BUILD_THREADS% /nr:false /p:Configuration=%BUILD_CONFIG% Mantid.sln
+if ERRORLEVEL 1 exit /B %ERRORLEVEL%
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Run the tests
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+&quot;C:\Program Files (x86)\CMake 2.8\bin\ctest.exe&quot; -C %BUILD_CONFIG% -j%BUILD_THREADS% --schedule-random --output-on-failure -E MantidPlot
+if ERRORLEVEL 1 exit /B %ERRORLEVEL%
+:: Run GUI tests serially
+ctest -C %BUILD_CONFIG% --output-on-failure -R MantidPlot
+if ERRORLEVEL 1 exit /B %ERRORLEVEL%
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Create the install kit if this is a clean build
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+::Cannot build kits under debug yet
+
+::if &quot;%CLEANBUILD%&quot; EQU &quot;yes&quot; (
+::    :: Build offline documentation
+::    msbuild /nologo /nr:false /p:Configuration=%BUILD_CONFIG% docs/docs-qthelp.vcxproj
+::
+::    :: ignore errors as the exit code of the build isn&apos;t correct
+::    ::if ERRORLEVEL 1 exit /B %ERRORLEVEL%
+::    cpack -C %BUILD_CONFIG% --config CPackConfig.cmake
+::)</command>
+    </hudson.tasks.BatchFile>
+    <hudson.tasks.BatchFile>
+      <command>:: Find out build configuration
+
+set BUILD_CONFIG=
+if not &quot;%JOB_NAME%&quot;==&quot;%JOB_NAME:debug=%&quot; (
+    set BUILD_CONFIG=Debug
+) else (
+if not &quot;%JOB_NAME%&quot;==&quot;%JOB_NAME:relwithdbg=%&quot; (
+    set BUILD_CONFIG=RelWithDbg
+) else (
+    set BUILD_CONFIG=Release
+    ))
+
+set PATH=%WORKSPACE%\Code\Third_Party\lib\win64;%WORKSPACE%\Code\Third_Party\lib\win64\Python27;%PARAVIEW_DIR%\bin\%BUILD_CONFIG%;%PATH%
+cd %WORKSPACE%\build
+msbuild /nologo /p:Configuration=%BUILD_CONFIG% docs/docs-test.vcxproj
+if ERRORLEVEl 1 exit /b 0
+</command>
+    </hudson.tasks.BatchFile>
+  </builders>
+  <publishers>
+    <hudson.plugins.warnings.WarningsPublisher plugin="warnings@4.41">
+      <healthy></healthy>
+      <unHealthy></unHealthy>
+      <thresholdLimit>low</thresholdLimit>
+      <pluginName>[WARNINGS] </pluginName>
+      <defaultEncoding></defaultEncoding>
+      <canRunOnFailed>false</canRunOnFailed>
+      <useStableBuildAsReference>false</useStableBuildAsReference>
+      <useDeltaValues>false</useDeltaValues>
+      <thresholds plugin="analysis-core@1.59">
+        <unstableTotalAll></unstableTotalAll>
+        <unstableTotalHigh></unstableTotalHigh>
+        <unstableTotalNormal></unstableTotalNormal>
+        <unstableTotalLow></unstableTotalLow>
+        <failedTotalAll></failedTotalAll>
+        <failedTotalHigh></failedTotalHigh>
+        <failedTotalNormal></failedTotalNormal>
+        <failedTotalLow></failedTotalLow>
+      </thresholds>
+      <shouldDetectModules>false</shouldDetectModules>
+      <dontComputeNew>true</dontComputeNew>
+      <doNotResolveRelativePaths>true</doNotResolveRelativePaths>
+      <parserConfigurations/>
+      <consoleParsers>
+        <hudson.plugins.warnings.ConsoleParser>
+          <parserName>MSBuild</parserName>
+        </hudson.plugins.warnings.ConsoleParser>
+      </consoleParsers>
+    </hudson.plugins.warnings.WarningsPublisher>
+    <hudson.tasks.junit.JUnitResultArchiver>
+      <testResults>**/TEST-*.xml</testResults>
+      <keepLongStdio>false</keepLongStdio>
+      <testDataPublishers/>
+    </hudson.tasks.junit.JUnitResultArchiver>
+    <hudson.tasks.Mailer plugin="mailer@1.10">
+      <recipients>martyn.gigg@stfc.ac.uk</recipients>
+      <dontNotifyEveryUnstableBuild>true</dontNotifyEveryUnstableBuild>
+      <sendToIndividuals>false</sendToIndividuals>
+    </hudson.tasks.Mailer>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
+    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.17">
+      <takeScreenshot>false</takeScreenshot>
+      <useXauthority>true</useXauthority>
+    </hudson.plugins.xvnc.Xvnc>
+  </buildWrappers>
+</project>

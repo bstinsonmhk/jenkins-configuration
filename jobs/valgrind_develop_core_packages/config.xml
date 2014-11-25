@@ -1,0 +1,129 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>50</daysToKeep>
+    <numToKeep>-1</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
+      <needsExclusiveAccessToNode>false</needsExclusiveAccessToNode>
+      <singleInstancePerSlave>false</singleInstancePerSlave>
+      <slaveUtilizationPercentage>0</slaveUtilizationPercentage>
+    </com.suryagaddipati.jenkins.SlaveUtilizationProperty>
+    <jenkins.plugins.slack.SlackNotifier_-SlackJobProperty plugin="slack@1.2">
+      <room></room>
+      <startNotification>false</startNotification>
+      <notifySuccess>false</notifySuccess>
+      <notifyAborted>false</notifyAborted>
+      <notifyNotBuilt>false</notifyNotBuilt>
+      <notifyUnstable>false</notifyUnstable>
+      <notifyFailure>false</notifyFailure>
+      <notifyBackToNormal>false</notifyBackToNormal>
+    </jenkins.plugins.slack.SlackNotifier_-SlackJobProperty>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27"/>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.5">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>git://github.com/mantidproject/mantid.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/develop</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <gitTool>Default</gitTool>
+    <submoduleCfg class="list"/>
+    <extensions>
+      <hudson.plugins.git.extensions.impl.CloneOption>
+        <shallow>false</shallow>
+        <reference></reference>
+        <timeout>60</timeout>
+      </hudson.plugins.git.extensions.impl.CloneOption>
+    </extensions>
+  </scm>
+  <assignedNode>valgrind</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <hudson.triggers.TimerTrigger>
+      <spec>@midnight</spec>
+    </hudson.triggers.TimerTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command># Clean up old memcheck files
+rm -f *.memcheck
+
+# Create directory if it does not already exist
+[ -d $WORKSPACE/build ] || mkdir $WORKSPACE/build
+
+cd build
+scl enable mantidlibs &quot;cmake -DCMAKE_BUILD_TYPE=Debug -DUSE_TCMALLOC=OFF ../Code/Mantid/Framework&quot;
+
+# The plugin projects build into the same directory so will have built the other test executables. Get rid of them here so the include
+# pattern below is simple.
+rm -f bin/*Test
+# Remove old user properties
+rm -f ~/.mantid/Mantid.user.properties
+
+scl enable mantidlibs &quot;make -j$BUILD_THREADS KernelTest&quot;
+scl enable mantidlibs &quot;make -j$BUILD_THREADS GeometryTest&quot;
+scl enable mantidlibs &quot;make -j$BUILD_THREADS APITest&quot;
+scl enable mantidlibs &quot;make -j$BUILD_THREADS DataObjectsTest&quot;</command>
+    </hudson.tasks.Shell>
+    <org.jenkinsci.plugins.valgrind.ValgrindBuilder plugin="valgrind@0.22">
+      <valgrindExecutable></valgrindExecutable>
+      <workingDirectory>${WORKSPACE}/build/bin</workingDirectory>
+      <includePattern>*Test</includePattern>
+      <excludePattern></excludePattern>
+      <outputDirectory></outputDirectory>
+      <outputFileEnding>.memcheck</outputFileEnding>
+      <showReachable>false</showReachable>
+      <undefinedValueErrors>true</undefinedValueErrors>
+      <leakCheckLevel>full</leakCheckLevel>
+      <programOptions></programOptions>
+      <valgrindOptions>--suppressions=${WORKSPACE}/Code/Tools/Valgrind/KernelTest.supp --suppressions=${WORKSPACE}/Code/Tools/Valgrind/GeometryTest.supp --suppressions=${WORKSPACE}/Code/Tools/Valgrind/APITest.supp --suppressions=${WORKSPACE}/Code/Tools/Valgrind/DataObjectsTest.supp</valgrindOptions>
+      <trackOrigins>false</trackOrigins>
+      <ignoreExitCode>false</ignoreExitCode>
+      <traceChildren>false</traceChildren>
+      <childSilentAfterFork>false</childSilentAfterFork>
+    </org.jenkinsci.plugins.valgrind.ValgrindBuilder>
+  </builders>
+  <publishers>
+    <org.jenkinsci.plugins.valgrind.ValgrindPublisher plugin="valgrind@0.22">
+      <valgrindPublisherConfig>
+        <pattern>*.memcheck</pattern>
+        <failThresholdInvalidReadWrite></failThresholdInvalidReadWrite>
+        <failThresholdDefinitelyLost></failThresholdDefinitelyLost>
+        <failThresholdTotal></failThresholdTotal>
+        <unstableThresholdInvalidReadWrite></unstableThresholdInvalidReadWrite>
+        <unstableThresholdDefinitelyLost></unstableThresholdDefinitelyLost>
+        <unstableThresholdTotal>0</unstableThresholdTotal>
+        <publishResultsForAbortedBuilds>false</publishResultsForAbortedBuilds>
+        <publishResultsForFailedBuilds>false</publishResultsForFailedBuilds>
+        <failBuildOnMissingReports>false</failBuildOnMissingReports>
+        <failBuildOnInvalidReports>false</failBuildOnInvalidReports>
+      </valgrindPublisherConfig>
+    </org.jenkinsci.plugins.valgrind.ValgrindPublisher>
+    <hudson.tasks.Mailer plugin="mailer@1.10">
+      <recipients>martyn.gigg@stfc.ac.uk</recipients>
+      <dontNotifyEveryUnstableBuild>false</dontNotifyEveryUnstableBuild>
+      <sendToIndividuals>true</sendToIndividuals>
+    </hudson.tasks.Mailer>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
+  </buildWrappers>
+</project>

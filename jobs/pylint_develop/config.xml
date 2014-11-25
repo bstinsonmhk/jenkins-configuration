@@ -1,0 +1,310 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>14</daysToKeep>
+    <numToKeep>-1</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.BooleanParameterDefinition>
+          <name>CLEAN</name>
+          <description>If true then perform a clean build rather than an incremental one.</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.26"/>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.2">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>git://github.com/mantidproject/mantid.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/develop</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <gitTool>Default</gitTool>
+    <submoduleCfg class="list"/>
+    <extensions>
+      <hudson.plugins.git.extensions.impl.CloneOption>
+        <shallow>false</shallow>
+        <reference></reference>
+        <timeout>30</timeout>
+      </hudson.plugins.git.extensions.impl.CloneOption>
+    </extensions>
+  </scm>
+  <assignedNode>pylint</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <hudson.triggers.SCMTrigger>
+      <spec># Check every 2 hours 
+H */2 * * *</spec>
+      <ignorePostCommitHooks>false</ignorePostCommitHooks>
+    </hudson.triggers.SCMTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash -ex
+
+###############################################################################
+# Print out the versions of things we are using
+###############################################################################
+cmake --version
+
+###############################################################################
+# RHEL6 setup steps - nodes must have a &quot;rhel6&quot; label set (in lowercase)
+###############################################################################
+if [[ ${NODE_LABELS} == *rhel6* ]]; then
+  SCL_ON_RHEL6=&quot;scl enable mantidlibs&quot;
+  ON_RHEL6=true
+else
+  SCL_ON_RHEL6=&quot;eval&quot;
+fi
+
+###############################################################################
+# Clean build if requested
+###############################################################################
+if [[ &quot;${CLEAN}&quot; == &quot;true&quot; ]]; then
+  # Removing the build directory entirely guarantees a completely clean build
+  rm -rf $WORKSPACE/build
+fi
+
+###############################################################################
+# Create the build directory if it doesn&apos;t exist
+###############################################################################
+[ -d $WORKSPACE/build ] || mkdir $WORKSPACE/build
+cd $WORKSPACE/build
+
+###############################################################################
+## Build configuration
+###############################################################################
+BUILD_CONFIG=&quot;Release&quot;
+
+###############################################################################
+# CMake configuration
+###############################################################################
+
+# Need this because some strange control sequences when using default TERM=xterm
+export TERM=&quot;linux&quot;
+$SCL_ON_RHEL6 &quot;cmake -DCMAKE_BUILD_TYPE=${BUILD_CONFIG} -DENABLE_CPACK=OFF -DMAKE_VATES=OFF -DPYLINT_OUTPUT_FORMAT=parseable ../Code/Mantid&quot;
+
+###############################################################################
+# Build step (we only need the framework)
+###############################################################################
+$SCL_ON_RHEL6 &quot;make -j$BUILD_THREADS&quot; Framework
+
+###############################################################################
+# Run lint check 
+###############################################################################
+$SCL_ON_RHEL6 &quot;make pylintcheck&quot; &gt; pylint.log
+</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.plugins.violations.ViolationsPublisher plugin="violations@0.7.11">
+      <config>
+        <suppressions class="sorted-set"/>
+        <typeConfigs>
+          <entry>
+            <string>checkstyle</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>checkstyle</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>codenarc</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>codenarc</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>cpd</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>cpd</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>cpplint</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>cpplint</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>csslint</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>csslint</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>findbugs</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>findbugs</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>fxcop</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>fxcop</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>gendarme</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>gendarme</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>jcreport</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>jcreport</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>jslint</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>jslint</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>pep8</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>pep8</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>perlcritic</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>perlcritic</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>pmd</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>pmd</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>pylint</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>pylint</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern>**/pylint.log</pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>simian</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>simian</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+          <entry>
+            <string>stylecop</string>
+            <hudson.plugins.violations.TypeConfig>
+              <type>stylecop</type>
+              <min>10</min>
+              <max>999</max>
+              <unstable>999</unstable>
+              <usePattern>false</usePattern>
+              <pattern></pattern>
+            </hudson.plugins.violations.TypeConfig>
+          </entry>
+        </typeConfigs>
+        <limit>100</limit>
+        <sourcePathPattern>**/</sourcePathPattern>
+        <fauxProjectPath></fauxProjectPath>
+        <encoding>default</encoding>
+      </config>
+    </hudson.plugins.violations.ViolationsPublisher>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.12"/>
+  </buildWrappers>
+</project>

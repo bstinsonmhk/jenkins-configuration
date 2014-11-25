@@ -1,0 +1,154 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description>Nightly build of the MPI-enabled variant of the framework.</description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>7</daysToKeep>
+    <numToKeep>-1</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.plugins.trac.TracProjectProperty plugin="trac@1.13">
+      <tracWebsite>http://trac.mantidproject.org/mantid/</tracWebsite>
+    </hudson.plugins.trac.TracProjectProperty>
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.8">
+      <projectUrl>https://github.com/mantidproject/mantid/</projectUrl>
+    </com.coravy.hudson.plugins.github.GithubProjectProperty>
+    <hudson.plugins.copyartifact.CopyArtifactPermissionProperty plugin="copyartifact@1.30">
+      <projectNameList>
+        <string>ornl_task_copy_mpibuild_to_lustre</string>
+      </projectNameList>
+    </hudson.plugins.copyartifact.CopyArtifactPermissionProperty>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.23"/>
+  </properties>
+  <scm class="org.jenkinsci.plugins.multiplescms.MultiSCM" plugin="multiple-scms@0.3">
+    <scms>
+      <hudson.plugins.git.GitSCM plugin="git@2.2.1">
+        <configVersion>2</configVersion>
+        <userRemoteConfigs>
+          <hudson.plugins.git.UserRemoteConfig>
+            <url>git://github.com/mantidproject/mantid.git</url>
+          </hudson.plugins.git.UserRemoteConfig>
+        </userRemoteConfigs>
+        <branches>
+          <hudson.plugins.git.BranchSpec>
+            <name>*/master</name>
+          </hudson.plugins.git.BranchSpec>
+        </branches>
+        <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+        <gitTool>Default</gitTool>
+        <submoduleCfg class="list"/>
+        <extensions>
+          <hudson.plugins.git.extensions.impl.PruneStaleBranch/>
+          <hudson.plugins.git.extensions.impl.CloneOption>
+            <shallow>false</shallow>
+            <reference></reference>
+            <timeout>30</timeout>
+          </hudson.plugins.git.extensions.impl.CloneOption>
+          <hudson.plugins.git.extensions.impl.CleanBeforeCheckout/>
+        </extensions>
+      </hudson.plugins.git.GitSCM>
+      <hudson.plugins.git.GitSCM plugin="git@2.2.1">
+        <configVersion>2</configVersion>
+        <userRemoteConfigs>
+          <hudson.plugins.git.UserRemoteConfig>
+            <url>git://github.com/mantidproject/systemtests.git</url>
+          </hudson.plugins.git.UserRemoteConfig>
+        </userRemoteConfigs>
+        <branches>
+          <hudson.plugins.git.BranchSpec>
+            <name>*/master</name>
+          </hudson.plugins.git.BranchSpec>
+        </branches>
+        <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+        <gitTool>Default</gitTool>
+        <submoduleCfg class="list"/>
+        <extensions>
+          <hudson.plugins.git.extensions.impl.RelativeTargetDirectory>
+            <relativeTargetDir>systemtests</relativeTargetDir>
+          </hudson.plugins.git.extensions.impl.RelativeTargetDirectory>
+          <hudson.plugins.git.extensions.impl.CloneOption>
+            <shallow>true</shallow>
+            <reference></reference>
+            <timeout>120</timeout>
+          </hudson.plugins.git.extensions.impl.CloneOption>
+          <hudson.plugins.git.extensions.impl.CleanBeforeCheckout/>
+        </extensions>
+      </hudson.plugins.git.GitSCM>
+    </scms>
+  </scm>
+  <assignedNode>openmpi</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <hudson.triggers.SCMTrigger>
+      <spec>@midnight</spec>
+      <ignorePostCommitHooks>false</ignorePostCommitHooks>
+    </hudson.triggers.SCMTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.plugins.cmake.CmakeBuilder plugin="cmakebuilder@1.9">
+      <sourceDir>Code/Mantid/Framework</sourceDir>
+      <buildDir>build</buildDir>
+      <installDir></installDir>
+      <buildType>Release</buildType>
+      <otherBuildType></otherBuildType>
+      <generator>Unix Makefiles</generator>
+      <makeCommand>make -j$BUILD_THREADS package</makeCommand>
+      <installCommand></installCommand>
+      <preloadScript></preloadScript>
+      <cmakeArgs>-DMPI_BUILD=ON -DCMAKE_SKIP_INSTALL_RPATH=ON -DINSTALL_ROOT=/sw/fermi/mantid-mpi</cmakeArgs>
+      <projectCmakePath>/usr/local/bin/cmake</projectCmakePath>
+      <cleanBuild>true</cleanBuild>
+      <cleanInstallDir>false</cleanInstallDir>
+      <builderImpl/>
+    </hudson.plugins.cmake.CmakeBuilder>
+    <hudson.tasks.Shell>
+      <command># Make tests
+cd $WORKSPACE/build
+make -j$BUILD_THREADS FrameworkTests
+# Run unit tests
+ctest -j$BUILD_THREADS --output-on-failure</command>
+    </hudson.tasks.Shell>
+    <hudson.tasks.Shell>
+      <command>cd $WORKSPACE/systemtests
+# Run the system tests
+cd InstallerTesting
+python runSystemTests.py -m $WORKSPACE/build/bin -l notice</command>
+    </hudson.tasks.Shell>
+    <hudson.tasks.Shell>
+      <command># Build the binary tarball package. Make sure the /opt/Mantid prefix isn&apos;t there.
+cd $WORKSPACE/build
+cpack -G TGZ --config CPackConfig.cmake -D CPACK_PACKAGING_INSTALL_PREFIX=</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.tasks.ArtifactArchiver>
+      <artifacts>build/*.rpm,build/*.tar.gz,build/modulefile/*</artifacts>
+      <latestOnly>false</latestOnly>
+      <allowEmptyArchive>false</allowEmptyArchive>
+    </hudson.tasks.ArtifactArchiver>
+    <hudson.tasks.junit.JUnitResultArchiver>
+      <testResults>**/TEST-*.xml,build/bin/Testing/TEST*,systemtests/logs/SystemTestsReport.xml</testResults>
+      <keepLongStdio>false</keepLongStdio>
+      <testDataPublishers/>
+    </hudson.tasks.junit.JUnitResultArchiver>
+    <hudson.tasks.BuildTrigger>
+      <childProjects>ornl_task_copy_mpibuild_to_lustre</childProjects>
+      <threshold>
+        <name>SUCCESS</name>
+        <ordinal>0</ordinal>
+        <color>BLUE</color>
+        <completeBuild>true</completeBuild>
+      </threshold>
+    </hudson.tasks.BuildTrigger>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.11"/>
+  </buildWrappers>
+</project>

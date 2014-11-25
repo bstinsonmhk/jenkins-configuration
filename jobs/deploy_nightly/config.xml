@@ -1,0 +1,194 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
+      <needsExclusiveAccessToNode>false</needsExclusiveAccessToNode>
+      <singleInstancePerSlave>false</singleInstancePerSlave>
+      <slaveUtilizationPercentage>0</slaveUtilizationPercentage>
+    </com.suryagaddipati.jenkins.SlaveUtilizationProperty>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27"/>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.4">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>git@github.com-mantid-builder:mantidproject/download.mantidproject.org.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/master</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <gitTool>Default</gitTool>
+    <submoduleCfg class="list"/>
+    <extensions>
+      <hudson.plugins.git.extensions.impl.RelativeTargetDirectory>
+        <relativeTargetDir>downloadpage</relativeTargetDir>
+      </hudson.plugins.git.extensions.impl.RelativeTargetDirectory>
+    </extensions>
+  </scm>
+  <assignedNode>master</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers>
+    <jenkins.triggers.ReverseBuildTrigger>
+      <spec></spec>
+      <upstreamProjects>virus_check</upstreamProjects>
+      <threshold>
+        <name>SUCCESS</name>
+        <ordinal>0</ordinal>
+        <color>BLUE</color>
+        <completeBuild>true</completeBuild>
+      </threshold>
+    </jenkins.triggers.ReverseBuildTrigger>
+  </triggers>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.31">
+      <project>master_clean</project>
+      <filter>**/*.exe,**/*.dmg,**/*.rpm,**/*.deb,**/*.tar.gz,**/*.tar.bz2</filter>
+      <target>artifacts</target>
+      <excludes></excludes>
+      <selector class="hudson.plugins.copyartifact.StatusBuildSelector"/>
+      <flatten>true</flatten>
+      <doNotFingerprintArtifacts>false</doNotFingerprintArtifacts>
+    </hudson.plugins.copyartifact.CopyArtifact>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash -ex
+
+SCP_HOST=frs.sourceforge.net
+SHELL_HOST=shell.sourceforge.net
+DEST_DIR=/home/frs/project/mantid/Nightly
+PROJECT=mantid
+USERNAME=mantidbuilder
+
+publish_build() {
+    # Remove the old one. First find package name
+    src_file=$1
+    filename=`basename $1`                                                                                   
+    case $filename in
+        mantidnightly*) pkgname=&quot;mantidnightly&quot;;;
+        mantid*) pkgname=&quot;mantid&quot;;;
+    esac
+    if [ -z &quot;$pkgname&quot; ]; then
+        return
+    fi
+    # now suffix                                                                                                                      
+    case $filename in
+        *.tar.gz) wildcard=&quot;*.tar.gz&quot;;;
+        *.deb) wildcard=&quot;*.deb&quot;;;
+        *.rpm) wildcard=&quot;*.rpm&quot;;;
+        *.dmg) wildcard=&quot;*.dmg&quot;;;
+        *-win32.exe) wildcard=&quot;*-win32.exe&quot;;;
+        *-win64.exe) wildcard=&quot;*-win64.exe&quot;;;
+        *) wildcard=&quot;&quot;
+    esac
+    if [ -z &quot;$wildcard&quot; ]; then
+        return
+    fi
+
+    ## Remove old file                                                                                    
+    ssh ${USERNAME},${PROJECT}@${SHELL_HOST} &quot;rm -f ${DEST_DIR}/${pkgname}${wildcard}&quot;
+    ## now copy new one into place                                                                                                    
+    scp ${src_file} ${USERNAME}@${SCP_HOST}:/home/frs/project/mantid/Nightly/${filename}
+}
+
+###############################################################################################
+
+###############################################################################################
+# Packages to sourceforge + make up a manifest of the build packages
+# for publishing to the download page
+###############################################################################################
+# Start sourceforge shell
+ssh ${USERNAME},${PROJECT}@${SHELL_HOST} create
+
+artifacts=`find ${WORKSPACE}/artifacts -type f -print0 | xargs -0`
+rm -Rf ${WORKSPACE}/manifest.txt
+for f in ${artifacts}; do
+    #echo $f
+    # don&apos;t deploy mantiddocs tarball
+    if [[ $f != *mantiddocs* ]] ; then
+        publish_build $f
+        filename=`basename $f`
+        echo $filename &gt;&gt; ${WORKSPACE}/manifest.txt
+    fi
+done
+
+
+</command>
+    </hudson.tasks.Shell>
+    <hudson.tasks.Shell>
+      <command>###############################################################################################
+# Update nightly manifest in download page repo
+###############################################################################################
+
+cd $WORKSPACE/downloadpage
+git checkout master
+git pull --rebase
+
+git config user.name mantid-builder
+git config user.email &quot;mantid-buildserver@mantidproject.org&quot;
+
+# Update the contents of the releases/nightly.txt file locally
+cp ${WORKSPACE}/manifest.txt $WORKSPACE/downloadpage/releases/nightly.txt
+
+# push to github (if there are any changes)
+changes=`git status --untracked-files=no --porcelain releases/nightly.txt`
+if [ ! -z &quot;${changes}&quot; ]; then
+    git add releases/nightly.txt
+    git commit -m &quot;Updating nightly releases manifest via jenkins&quot;
+    git push origin master
+fi</command>
+    </hudson.tasks.Shell>
+    <hudson.tasks.Shell>
+      <command>###############################################################################################
+# Documentation to linode
+###############################################################################################
+# Find tarball
+docs_tarball=`find ${WORKSPACE}/artifacts -type f  -name &apos;*.tar.bz2&apos;`
+nfiles=`echo -e &quot;$docs_tarball&quot; | wc -l`
+if [ &quot;${nfiles}&quot; != &quot;1&quot; ]; then
+    echo &quot;Found more than 1 documentation tarball! Don&apos;t know what to do&quot;
+    exit 1
+fi
+
+# Publish
+DOCS_SRV=/srv/docs/mantidproject.org
+FILE_DROP=${DOCS_SRV}/filedrop
+
+# First copy over the tarball (deleting anything beforehand)
+ssh mantid-builder@localhost &quot;rm -fr ${FILE_DROP}/*.tar.bz2&quot;
+scp ${docs_tarball} mantid-builder@localhost:${FILE_DROP}
+
+# Don&apos;t extract directly to nightly area just in case something goes wrong. This
+# extracts to a stage and then just renames the directory
+NIGHTLY_STAGE=${FILE_DROP}/nightly_staged
+NIGHTLY=${DOCS_SRV}/public_html/nightly
+DEPLOY=&quot;mkdir -p ${NIGHTLY_STAGE} &amp;&amp;
+        tar --extract -C ${NIGHTLY_STAGE} --strip-components=2 --bzip2 -f ${docs_tarball} &amp;&amp;
+        rm -fr ${NIGHTLY} &amp;&amp;
+        mkdir -p ${NIGHTLY} &amp;&amp;
+        mv --no-target-directory ${NIGHTLY_STAGE} ${NIGHTLY}&quot;
+
+ssh mantid-builder@localhost $DEPLOY
+
+</command>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers>
+    <hudson.plugins.ws__cleanup.PreBuildCleanup plugin="ws-cleanup@0.22">
+      <deleteDirs>false</deleteDirs>
+      <cleanupParameter></cleanupParameter>
+      <externalDelete></externalDelete>
+    </hudson.plugins.ws__cleanup.PreBuildCleanup>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
+  </buildWrappers>
+</project>

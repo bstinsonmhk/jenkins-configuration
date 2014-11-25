@@ -1,0 +1,64 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>14</daysToKeep>
+    <numToKeep>-1</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.23"/>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <assignedNode>sophos</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.BatchFile>
+      <command>::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Find filename
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+set cnt=0
+for %%f in (*.exe) do (set /a cnt+=1 &amp; set filename=%%f)
+
+if not %cnt% == 1 (
+  echo Incorrect number of files found!
+  exit /b 1
+)
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Install package (silently)
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+echo Installing %filename%
+start &quot;Installing&quot; /wait %filename% /S
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Run check
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+&quot;%SOPHOS_CLI%&quot; -archive -f -extensive C:\MantidInstall
+set CHECK_STATUS=%ERRORLEVEL%
+
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+:: Uninstall package (silently)
+::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+C:\MantidInstall\Uninstall.exe /S
+
+if %ERRORLEVEL% GTR 0 (
+  echo Problem detected with uninstall!! Deleting directory by hand
+  rmdir /S /Q C:\MantidInstall
+  exit /b 1
+)
+
+exit /b %CHECK_STATUS%</command>
+    </hudson.tasks.BatchFile>
+  </builders>
+  <publishers/>
+  <buildWrappers/>
+</project>

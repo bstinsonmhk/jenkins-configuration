@@ -1,0 +1,90 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <logRotator class="hudson.tasks.LogRotator">
+    <daysToKeep>50</daysToKeep>
+    <numToKeep>-1</numToKeep>
+    <artifactDaysToKeep>-1</artifactDaysToKeep>
+    <artifactNumToKeep>-1</artifactNumToKeep>
+  </logRotator>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27"/>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.6">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>git://github.com/mantidproject/mantid.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>*/develop</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <gitTool>Default</gitTool>
+    <submoduleCfg class="list"/>
+    <extensions/>
+  </scm>
+  <assignedNode>valgrind</assignedNode>
+  <canRoam>false</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <customWorkspace>/home/builder/jenkins-linode/workspace/valgrind_develop_core_packages</customWorkspace>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>rm -f *.memcheck
+cd build
+rm -f bin/*Test
+scl enable mantidlibs &quot;make -j$BUILD_THREADS ICatTest&quot;</command>
+    </hudson.tasks.Shell>
+    <org.jenkinsci.plugins.valgrind.ValgrindBuilder plugin="valgrind@0.22">
+      <valgrindExecutable></valgrindExecutable>
+      <workingDirectory>${WORKSPACE}/build/bin</workingDirectory>
+      <includePattern>ICatTest</includePattern>
+      <excludePattern></excludePattern>
+      <outputDirectory></outputDirectory>
+      <outputFileEnding>.memcheck</outputFileEnding>
+      <showReachable>false</showReachable>
+      <undefinedValueErrors>true</undefinedValueErrors>
+      <leakCheckLevel>full</leakCheckLevel>
+      <programOptions></programOptions>
+      <valgrindOptions></valgrindOptions>
+      <trackOrigins>false</trackOrigins>
+      <ignoreExitCode>false</ignoreExitCode>
+      <traceChildren>false</traceChildren>
+      <childSilentAfterFork>false</childSilentAfterFork>
+    </org.jenkinsci.plugins.valgrind.ValgrindBuilder>
+  </builders>
+  <publishers>
+    <org.jenkinsci.plugins.valgrind.ValgrindPublisher plugin="valgrind@0.22">
+      <valgrindPublisherConfig>
+        <pattern>*.memcheck</pattern>
+        <failThresholdInvalidReadWrite></failThresholdInvalidReadWrite>
+        <failThresholdDefinitelyLost></failThresholdDefinitelyLost>
+        <failThresholdTotal></failThresholdTotal>
+        <unstableThresholdInvalidReadWrite></unstableThresholdInvalidReadWrite>
+        <unstableThresholdDefinitelyLost></unstableThresholdDefinitelyLost>
+        <unstableThresholdTotal>0</unstableThresholdTotal>
+        <publishResultsForAbortedBuilds>false</publishResultsForAbortedBuilds>
+        <publishResultsForFailedBuilds>false</publishResultsForFailedBuilds>
+        <failBuildOnMissingReports>false</failBuildOnMissingReports>
+        <failBuildOnInvalidReports>false</failBuildOnInvalidReports>
+      </valgrindPublisherConfig>
+    </org.jenkinsci.plugins.valgrind.ValgrindPublisher>
+  </publishers>
+  <buildWrappers>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
+    <com.datalex.jenkins.plugins.nodestalker.wrapper.NodeStalkerBuildWrapper plugin="job-node-stalker@1.0.3">
+      <job>valgrind_develop_core_packages</job>
+      <shareWorkspace>true</shareWorkspace>
+      <firstTimeFlag>false</firstTimeFlag>
+    </com.datalex.jenkins.plugins.nodestalker.wrapper.NodeStalkerBuildWrapper>
+  </buildWrappers>
+</project>

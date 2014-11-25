@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<hudson.plugins.warnings.WarningsDescriptor plugin="warnings@4.44">
+  <groovyParsers>
+    <hudson.plugins.warnings.GroovyParser>
+      <name>Sphinx</name>
+      <regexp>^(.+?):(\d+)?:\s+(WARNING|ERROR):\s+(.+)$</regexp>
+      <script>import hudson.plugins.warnings.parser.Warning
+
+def String fileName = matcher.group(1)
+def int lineNumber = 0
+def int catGroup = 3
+def int msgGroup = 4
+
+if (matcher.groupCount() == 4) {
+  try {
+    String lineNumberStr = matcher.group(2)
+    lineNumberStr as Integer
+    lineNumber = Integer.parseInt(lineNumberStr)
+  } catch (e) {
+    lineNumber = -1
+  }
+}
+
+String category = matcher.group(catGroup)
+String message = matcher.group(msgGroup)
+
+return new Warning(fileName, lineNumber, &quot;sphinx&quot;, category, message);</script>
+      <example></example>
+      <linkName>Sphinx Warnings</linkName>
+      <trendName>Sphinx Warnings Trend</trendName>
+    </hudson.plugins.warnings.GroovyParser>
+    <hudson.plugins.warnings.GroovyParser>
+      <name>Doctest</name>
+      <regexp>[1-9] failures in</regexp>
+      <script>import hudson.plugins.warnings.parser.Warning
+String fileName = &quot;output.txt&quot;
+String category = &quot;doctest&quot;
+String message = &quot;failures&quot;
+
+return new Warning(fileName, 0, &quot;doctest&quot;, category, message);</script>
+      <example>1 failures in</example>
+      <linkName>Doctest errors</linkName>
+      <trendName>Doctest errors trend</trendName>
+    </hudson.plugins.warnings.GroovyParser>
+  </groovyParsers>
+</hudson.plugins.warnings.WarningsDescriptor>
