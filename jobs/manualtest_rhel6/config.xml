@@ -6,7 +6,7 @@
     <daysToKeep>-1</daysToKeep>
     <numToKeep>3</numToKeep>
     <artifactDaysToKeep>-1</artifactDaysToKeep>
-    <artifactNumToKeep>-1</artifactNumToKeep>
+    <artifactNumToKeep>1</artifactNumToKeep>
   </logRotator>
   <keepDependencies>false</keepDependencies>
   <properties>
@@ -41,7 +41,7 @@
     </jenkins.plugins.slack.SlackNotifier_-SlackJobProperty>
     <de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty plugin="jenkinswalldisplay@0.6.27"/>
   </properties>
-  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.5">
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.6">
     <configVersion>2</configVersion>
     <userRemoteConfigs>
       <hudson.plugins.git.UserRemoteConfig>
@@ -73,7 +73,7 @@
   <triggers/>
   <concurrentBuild>false</concurrentBuild>
   <builders>
-    <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.31">
+    <hudson.plugins.copyartifact.CopyArtifact plugin="copyartifact@1.32.1">
       <project>develop_incremental/label=rhel6-build</project>
       <filter>build/mantid*.rpm</filter>
       <target></target>
@@ -106,8 +106,11 @@ python InstallerTesting/InstallerTests.py -o ${LOGGING} ${REGEX}</command>
       <artifacts>logs/*.xml,logs/*.nxs</artifacts>
       <latestOnly>true</latestOnly>
       <allowEmptyArchive>false</allowEmptyArchive>
+      <onlyIfSuccessful>false</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>true</defaultExcludes>
     </hudson.tasks.ArtifactArchiver>
-    <hudson.tasks.junit.JUnitResultArchiver>
+    <hudson.tasks.junit.JUnitResultArchiver plugin="junit@1.0">
       <testResults>logs/*.xml</testResults>
       <keepLongStdio>false</keepLongStdio>
       <testDataPublishers/>
