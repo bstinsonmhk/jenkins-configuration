@@ -1,19 +1,19 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<matrix-project plugin="matrix-project@1.3">
+<matrix-project plugin="matrix-project@1.4">
   <actions/>
   <description></description>
   <logRotator class="hudson.tasks.LogRotator">
     <daysToKeep>-1</daysToKeep>
     <numToKeep>14</numToKeep>
     <artifactDaysToKeep>-1</artifactDaysToKeep>
-    <artifactNumToKeep>-1</artifactNumToKeep>
+    <artifactNumToKeep>1</artifactNumToKeep>
   </logRotator>
   <keepDependencies>false</keepDependencies>
   <properties>
     <hudson.plugins.trac.TracProjectProperty plugin="trac@1.13">
       <tracWebsite>http://trac.mantidproject.org/mantid/</tracWebsite>
     </hudson.plugins.trac.TracProjectProperty>
-    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.9.1">
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.10">
       <projectUrl>http://github.com/mantidproject/mantid/</projectUrl>
     </com.coravy.hudson.plugins.github.GithubProjectProperty>
     <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
@@ -21,7 +21,7 @@
       <singleInstancePerSlave>false</singleInstancePerSlave>
       <slaveUtilizationPercentage>0</slaveUtilizationPercentage>
     </com.suryagaddipati.jenkins.SlaveUtilizationProperty>
-    <hudson.plugins.copyartifact.CopyArtifactPermissionProperty plugin="copyartifact@1.31">
+    <hudson.plugins.copyartifact.CopyArtifactPermissionProperty plugin="copyartifact@1.32.1">
       <projectNameList>
         <string>stable_systemtests</string>
       </projectNameList>
@@ -30,7 +30,7 @@
       <wallDisplayName>Release Clean</wallDisplayName>
     </de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty>
   </properties>
-  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.4">
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.6">
     <configVersion>2</configVersion>
     <userRemoteConfigs>
       <hudson.plugins.git.UserRemoteConfig>
@@ -86,7 +86,7 @@
     </hudson.plugins.xshell.XShellBuilder>
   </builders>
   <publishers>
-    <hudson.plugins.warnings.WarningsPublisher plugin="warnings@4.40">
+    <hudson.plugins.warnings.WarningsPublisher plugin="warnings@4.44">
       <healthy></healthy>
       <unHealthy></unHealthy>
       <thresholdLimit>low</thresholdLimit>
@@ -95,7 +95,7 @@
       <canRunOnFailed>false</canRunOnFailed>
       <useStableBuildAsReference>false</useStableBuildAsReference>
       <useDeltaValues>false</useDeltaValues>
-      <thresholds plugin="analysis-core@1.57">
+      <thresholds plugin="analysis-core@1.65">
         <unstableTotalAll>0</unstableTotalAll>
         <unstableTotalHigh></unstableTotalHigh>
         <unstableTotalNormal></unstableTotalNormal>
@@ -125,6 +125,9 @@
       <artifacts>build/*.rpm,build/*.tar.gz,build/*.deb,build/*.exe,build/*.dmg,build/*.tar.bz2</artifacts>
       <latestOnly>true</latestOnly>
       <allowEmptyArchive>false</allowEmptyArchive>
+      <onlyIfSuccessful>false</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>true</defaultExcludes>
     </hudson.tasks.ArtifactArchiver>
     <hudson.tasks.BuildTrigger>
       <childProjects>stable_systemtests</childProjects>
@@ -135,7 +138,7 @@
         <completeBuild>true</completeBuild>
       </threshold>
     </hudson.tasks.BuildTrigger>
-    <hudson.tasks.junit.JUnitResultArchiver>
+    <hudson.tasks.junit.JUnitResultArchiver plugin="junit@1.0">
       <testResults>**/TEST-*.xml</testResults>
       <keepLongStdio>false</keepLongStdio>
       <testDataPublishers/>
@@ -143,7 +146,7 @@
   </publishers>
   <buildWrappers>
     <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
-    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.17">
+    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.20">
       <takeScreenshot>false</takeScreenshot>
       <useXauthority>true</useXauthority>
     </hudson.plugins.xvnc.Xvnc>
