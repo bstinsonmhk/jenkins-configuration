@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<hudson.plugins.twitter.TwitterPublisher_-DescriptorImpl plugin="twitter@0.7">
+  <token>246848666-stQ2Bne8JtSanNZu6SoqHhymm7GsvNk3BbE9IBds</token>
+  <tokenSecret>ow1HZmUtfRSHG1wTwHqpdUwr3CuUUh5rnCEmUEtS2Q</tokenSecret>
+  <hudsonUrl>http://builds.mantidproject.org/</hudsonUrl>
+  <onlyOnFailureOrRecovery>true</onlyOnFailureOrRecovery>
+  <includeUrl>true</includeUrl>
+</hudson.plugins.twitter.TwitterPublisher_-DescriptorImpl>

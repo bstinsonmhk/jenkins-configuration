@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<hudson.plugins.emailext.ExtendedEmailPublisherDescriptor plugin="email-ext@2.39">
+  <useSsl>false</useSsl>
+  <charset>UTF-8</charset>
+  <defaultContentType>text/plain</defaultContentType>
+  <defaultSubject>${BUILD_STATUS}: ${PROJECT_NAME} - Build # ${BUILD_NUMBER}</defaultSubject>
+  <defaultBody>Build URL: ${BUILD_URL}&#xd;
+&#xd;
+Build Trigger: ${CAUSE}&#xd;
+&#xd;
+${CHANGES,showPaths=true}&#xd;
+------------------------------------------------------------------------&#xd;
+&#xd;
+Unit Test Results:&#xd;
+&#xd;
+${FAILED_TESTS, showStack=false} &#xd;
+------------------------------------------------------------------------&#xd;
+&#xd;
+Full console output at: ${BUILD_URL}consoleText&#xd;
+</defaultBody>
+  <defaultPresendScript></defaultPresendScript>
+  <defaultClasspath/>
+  <maxAttachmentSize>-1</maxAttachmentSize>
+  <recipientList></recipientList>
+  <defaultReplyTo></defaultReplyTo>
+  <excludedCommitters></excludedCommitters>
+  <overrideGlobalSettings>false</overrideGlobalSettings>
+  <precedenceBulk>false</precedenceBulk>
+  <debugMode>false</debugMode>
+  <enableSecurity>false</enableSecurity>
+  <requireAdminForTemplateTesting>false</requireAdminForTemplateTesting>
+  <enableWatching>false</enableWatching>
+</hudson.plugins.emailext.ExtendedEmailPublisherDescriptor>
