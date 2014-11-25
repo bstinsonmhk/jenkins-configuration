@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<matrix-project plugin="matrix-project@1.3">
+<matrix-project plugin="matrix-project@1.4">
   <actions/>
   <description>Clean build for Mantid against the next version of ParaView (4.2.0)</description>
   <logRotator class="hudson.tasks.LogRotator">
@@ -13,7 +13,7 @@
     <hudson.plugins.trac.TracProjectProperty plugin="trac@1.13">
       <tracWebsite>http://trac.mantidproject.org/mantid/</tracWebsite>
     </hudson.plugins.trac.TracProjectProperty>
-    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.9.1">
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.10">
       <projectUrl>http://github.com/mantidproject/mantid/</projectUrl>
     </com.coravy.hudson.plugins.github.GithubProjectProperty>
     <com.suryagaddipati.jenkins.SlaveUtilizationProperty plugin="slave-utilization-plugin@1.8">
@@ -35,7 +35,7 @@
       <wallDisplayName>ParaView-Next Clean</wallDisplayName>
     </de.pellepelster.jenkins.walldisplay.WallDisplayJobProperty>
   </properties>
-  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.5">
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@2.2.6">
     <configVersion>2</configVersion>
     <userRemoteConfigs>
       <hudson.plugins.git.UserRemoteConfig>
@@ -86,13 +86,15 @@
   <publishers>
     <hudson.tasks.ArtifactArchiver>
       <artifacts>build/*.rpm,build/*.tar.gz,build/*.deb,build/*.exe,build/*.dmg</artifacts>
-      <latestOnly>false</latestOnly>
       <allowEmptyArchive>false</allowEmptyArchive>
+      <onlyIfSuccessful>false</onlyIfSuccessful>
+      <fingerprint>false</fingerprint>
+      <defaultExcludes>true</defaultExcludes>
     </hudson.tasks.ArtifactArchiver>
   </publishers>
   <buildWrappers>
     <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.5.14"/>
-    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.17">
+    <hudson.plugins.xvnc.Xvnc plugin="xvnc@1.20">
       <takeScreenshot>false</takeScreenshot>
       <useXauthority>true</useXauthority>
     </hudson.plugins.xvnc.Xvnc>
