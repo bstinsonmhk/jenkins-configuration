@@ -104,7 +104,6 @@ python InstallerTesting/InstallerTests.py -o ${LOGGING} ${REGEX}</command>
   <publishers>
     <hudson.tasks.ArtifactArchiver>
       <artifacts>logs/*.xml,logs/*.nxs</artifacts>
-      <latestOnly>true</latestOnly>
       <allowEmptyArchive>false</allowEmptyArchive>
       <onlyIfSuccessful>false</onlyIfSuccessful>
       <fingerprint>false</fingerprint>
